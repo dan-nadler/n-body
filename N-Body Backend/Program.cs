@@ -1,4 +1,3 @@
-﻿
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,34 +11,127 @@ namespace N_Body__Backend
     {
         static void Main(string[] args)
         {
-            Body b1 = new Body(new[] { 0.0, 0.0, 0.0 }, new[] { 0.0, 0.0, 0.0 }, 10E26, 1, "b1");
-            Body b2 = new Body(new[] { 1.0e12, 0.0, 0.0 }, new[] { 0.0, 5.0e6, 0.0 }, 10E24, 1, "b2");
-            Body b3 = new Body(new[] { -1.0e12, 0.0, 0.0 }, new[] { 0.0, -5.0e6, 0.0 }, 20E24, 1, "b3");
-            Body b4 = new Body(new[] { -1.0e12, -1.0e12, 0.0 }, new[] { -2.50e6, -2.50e6, 0.0 }, 1.5E24, 1, "b4");
-            Body[] bodies = { b1, b2, b3, b4 };
-            Simulation sim = new Simulation( bodies );
-            using (System.IO.StreamWriter file = new System.IO.StreamWriter(@"C:\Users\Daniel\Documents\positions.csv"))
+            List<Body> bodies = new List<Body>();
+            int n = 500; // number of bodies
+            int T = 500000; // time steps
+
+            // initialization parameters
+            double positionScalar = 10e10;
+            double velocityScalar = 30e5;
+            double noiseLevel = .2;
+            Initialization(n, positionScalar, velocityScalar, noiseLevel, bodies, "sphere");
+
+            Simulation sim = new Simulation(bodies);
+            using (System.IO.StreamWriter file = new System.IO.StreamWriter(@"c:\users\daniel\documents\visual studio 2017\Projects\N-Body Backend\N-Body Backend\sphere_positions_detail.csv"))
             {
-                for (int t=0; t<=50000; t++)
+                file.Write("X,Y,Z,Mass,Time,Body\n");
+                for (int t = 0; t <= T; t++) 
                 {
+                    double avgR = 0;
+                    for (int i = 0; i < bodies.Count(); i++)
+                    {
+                        avgR += bodies[i].position.L2Norm();
+                    }
+                    avgR /= bodies.Count();
+
+                    if (bodies.Count() <= n/10)
+                    {
+                        break;
+                    }
+
+                    Console.Write("Bodies: " + bodies.Count().ToString() + "; t=" + t.ToString() + "; Avg. Distance: " + avgR / positionScalar + "\r");
                     sim.CalculateStep();
 
-                    if (false)
+                    if (t % 10 == 0)
                     {
-                        Console.Write((b1.position - b2.position).L2Norm());
-                        Console.Write("\n");
-                        Console.Write((b1.position - b3.position).L2Norm());
-                        Console.Write("\n");
-                        Console.Write((b3.position - b2.position).L2Norm());
-                        Console.ReadKey();
-                        Console.Clear();
+                        int i = 0;
+                        foreach (Body b in bodies)
+                        {
+                            file.Write(
+                                (b.position[0] / positionScalar).ToString() + "," //x
+                                + (b.position[1] / positionScalar).ToString() + "," //y
+                                + (b.position[2] / positionScalar).ToString() + "," //z
+                                + b.mass / 10e30 + "," //color
+                                + t.ToString() + "," //time
+                                + b.id + "\n"); //label
+                            i++;
+                        }
                     }
-                    foreach (Body b in bodies)
-                    {
-                        file.Write(b.position[0].ToString() + "," + b.position[1].ToString()+",");
-                    }
-                    file.Write("\n");
                 }
+            }
+        }
+
+        private static void Initialization(int n, double positionScalar, double velocityScalar, double noiseLevel, List<Body> bodies, string type = "toroid")
+        {
+            Random rnd = new Random();
+
+            double noise = 1.0 / noiseLevel;
+            for (int i = 0; i < n; i++)
+            {
+                double x, y, z, vx, vy, vz;
+
+                if (type == "toroid")
+                {
+                    x = Math.Sin(Math.PI * i / (n / 2)) + ((rnd.NextDouble() - 0.5) / noise);
+                    y = Math.Cos(Math.PI * i / (n / 2)) + ((rnd.NextDouble() - 0.5) / noise);
+                    z = ((rnd.NextDouble() - 0.5) / noise);
+
+                    vx = y;
+                    vy = -x;
+                    vz = 0.0;
+
+                } else if (type == "cube") {
+
+                    x = (rnd.NextDouble() - 0.5) / noise;
+                    y = (rnd.NextDouble() - 0.5) / noise;
+                    z = (rnd.NextDouble() - 0.5) / noise;
+
+                    vx = (rnd.NextDouble() - 0.5) / noise;
+                    vy = (rnd.NextDouble() - 0.5) / noise;
+                    vz = (rnd.NextDouble() - 0.5) / noise;
+
+                } else if (type == "sphere") {
+
+                    bool pos = rnd.NextDouble() > 0.5;
+
+                    double r = 1;
+                    double theta = rnd.NextDouble() * Math.PI * 1.0;
+                    double phi = rnd.NextDouble() * Math.PI * 2.0;
+
+                    double rp = r * Math.Cos(phi);
+
+                    x = rp * Math.Sin(theta);
+                    y = r * Math.Sin(phi);
+                    z = rp * Math.Cos(theta);
+
+                    vx = 0.0;
+                    vy = 0.0;
+                    vz = 0.0;
+
+                    // positionScalar *= 5;
+                    // velocityScalar *= 10.0;
+
+                } else { // cube 
+
+                    x = (rnd.NextDouble() - 0.5) / noise;
+                    y = (rnd.NextDouble() - 0.5) / noise;
+                    z = (rnd.NextDouble() - 0.5) / noise;
+
+                    vx = (rnd.NextDouble() - 0.5) / noise;
+                    vy = (rnd.NextDouble() - 0.5) / noise;
+                    vz = (rnd.NextDouble() - 0.5) / noise;
+                }
+
+                Body b = new Body(
+                           new[] { x * positionScalar, y * positionScalar, z * positionScalar },
+                           new[] { vx * velocityScalar, vy * velocityScalar, vz * velocityScalar },
+                           20E30,
+                           30e7,
+                           "b" + i.ToString(),
+                           i
+                       );
+
+                bodies.Add(b);
             }
         }
     }
@@ -53,8 +145,9 @@ namespace N_Body__Backend
         public double mass;
         public double radius;
         public string name;
+        public int id;
 
-        public Body(double[] position, double[] velocity, double mass, double radius, string name)
+        public Body(double[] position, double[] velocity, double mass, double radius, string name, int id)
         {
             this.name = name;
             this.position = Vector<double>.Build.Dense(position);
@@ -63,6 +156,7 @@ namespace N_Body__Backend
             this.force = Vector<double>.Build.Dense(3);
             this.mass = mass;
             this.radius = radius;
+            this.id = id;
         }
 
         public void Reset()
@@ -111,30 +205,69 @@ namespace N_Body__Backend
     class Simulation
     {
 
-        Body[] bodies;
+        List<Body> bodies;
         const double G = 6.67408 * 10e-11;
 
-        public Simulation(Body[] bodies)
+        public Simulation(List<Body> bodies)
         {
             this.bodies = bodies;
         }
 
         public void CalculateStep()
         {
-            for (int i = 0; i < bodies.Count(); i++)
+            //for (int i = 0; i < bodies.Count(); i++)
+            Parallel.For(0, bodies.Count(), i =>
             {
-                for (int j = 0; j < i; j++)
+                //for (int j = 0; j < i; j++)
+                Parallel.For(0, i, j =>
                 {
                     CalculateForce(bodies[i], bodies[j]);
-                }
-            }
+                });
+            });
 
-            for (int i = 0; i < bodies.Count(); i++)
+            Parallel.For(0, bodies.Count(), i =>
             {
                 bodies[i].ApplyForce();
                 bodies[i].ApplyAcceleration();
                 bodies[i].ApplyVelocity();
                 bodies[i].Reset();
+            });
+
+            CullMergedBodies();
+            CullNaNBodies();
+        }
+
+        public void CullMergedBodies()
+        {
+            List<Body> bodiesToRemove = new List<Body>();
+            foreach (Body b in bodies)
+            {
+                if (b.mass == 0)
+                {
+                    bodiesToRemove.Add(b);
+                }
+            }
+
+            foreach (Body b in bodiesToRemove)
+            {
+                bodies.Remove(b);
+            }
+        }
+
+        public void CullNaNBodies()
+        {
+            List<Body> bodiesToRemove = new List<Body>();
+            foreach (Body b in bodies)
+            {
+                if (double.IsNaN(b.position.L2Norm()))
+                {
+                    bodiesToRemove.Add(b);
+                }
+            }
+
+            foreach (Body b in bodiesToRemove)
+            {
+                bodies.Remove(b);
             }
         }
 
@@ -147,19 +280,24 @@ namespace N_Body__Backend
             Vector<double> p2 = b2.position;
 
             Vector<double> d = p1 - p2;
-            Vector<double> r = d/d.L2Norm();
+            Vector<double> r = d / d.L2Norm();
 
             if (d.L2Norm() <= b1.radius + b2.radius)
             {
                 // combine bodies
+                b1.velocity /= b1.mass;
+                b1.velocity += b2.velocity / b2.mass;
+
+                b1.mass += b2.mass;
+                b2.mass = 0;
             }
             else
             {
                 // Fg = G * m1 * m2 / r^2
-            Vector<double> f = (G * m1 * m2 / (d*d)) * r;
-            
-            b1.force -= f;
-            b2.force += f;
+                Vector<double> f = (G * m1 * m2 / (d * d)) * r;
+
+                b1.force -= f;
+                b2.force += f;
             }
         }
     }
