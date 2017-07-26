@@ -285,8 +285,9 @@ namespace N_Body__Backend
             if (d.L2Norm() <= b1.radius + b2.radius)
             {
                 // combine bodies
-                b1.velocity /= b1.mass;
-                b1.velocity += b2.velocity / b2.mass;
+                double totalMass = b1.mass + b2.mass;
+                b1.velocity *= (b1.mass / totalMass);
+                b1.velocity += (b2.velocity * (b2.mass/totalMass));
 
                 b1.mass += b2.mass;
                 b2.mass = 0;
